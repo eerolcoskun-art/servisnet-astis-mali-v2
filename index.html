@@ -18,7 +18,7 @@ button {
   font-size: 16px;
 }
 
-#sonuc {
+#result {
   margin-top: 20px;
   font-weight: bold;
 }
@@ -31,7 +31,7 @@ button {
 
 <button onclick="testConnection()">Veritabanı Test Et</button>
 
-<div id="sonuc"></div>
+<div id="result"></div>
 
 <script>
 const supabaseUrl = "https://estdjfvlpebkmelzewjo.supabase.co";
@@ -40,7 +40,7 @@ const supabaseKey = "sb_publishable_YnjXKncf6BGO6gMa4bzAhA_66duBIov";
 const client = supabase.createClient(supabaseUrl, supabaseKey);
 
 async function testConnection() {
-  document.getElementById("sonuc").innerText = "Bağlanıyor...";
+  document.getElementById("result").innerText = "Bağlanıyor...";
 
   const { data, error } = await client
     .from("companies")
@@ -48,9 +48,9 @@ async function testConnection() {
     .limit(1);
 
   if (error) {
-    document.getElementById("sonuc").innerText = "❌ HATA: " + error.message;
+    document.getElementById("result").innerText = "❌ HATA: " + error.message;
   } else {
-    document.getElementById("sonuc").innerText = "✅ VERİTABANI BAĞLANDI";
+    document.getElementById("result").innerText = "✅ VERİTABANI BAĞLANDI";
   }
 }
 </script>
