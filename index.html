@@ -2,22 +2,49 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
-<title>ServisNET ASTİS V21</title>
+<title>ServisNET ASTİS - ANA PANEL</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
 <style>
-body{font-family:Arial;background:#f5f5f5;padding:20px}
-button{padding:10px 20px}
-#sonuc{margin-top:15px;font-weight:bold;line-height:1.7}
+body {
+  font-family: Arial;
+  background:#f5f5f5;
+  padding:20px;
+}
+
+h2 {
+  margin-bottom:20px;
+}
+
+button {
+  padding:10px 20px;
+  margin:5px;
+  cursor:pointer;
+}
+
+.menu {
+  margin-bottom:20px;
+}
+
+.kutu {
+  background:white;
+  padding:15px;
+  border-radius:8px;
+  margin-top:10px;
+  box-shadow:0 0 10px rgba(0,0,0,0.05);
+}
 </style>
 </head>
 
 <body>
 
-<h2>ServisNET ASTİS Mali Panel</h2>
+<h2>ServisNET ASTİS ANA PANEL</h2>
 
-<button onclick="test()">Veritabanı Test</button>
+<div class="menu">
+  <button onclick="listele()">Şirketleri Getir</button>
+</div>
 
-<div id="sonuc"></div>
+<div id="icerik" class="kutu">Hazır</div>
 
 <script>
 const supabaseUrl = "https://estdjfvlpebkmelzewjo.supabase.co";
@@ -25,17 +52,19 @@ const supabaseKey = "sb_publishable_YnjXKncf6BGO6gMa4bzAhA_66duBIov";
 
 const client = supabase.createClient(supabaseUrl, supabaseKey);
 
-async function test() {
+async function listele(){
   const { data, error } = await client.from("companies").select("*");
 
   if(error){
-    sonuc.innerText = "HATA: " + error.message;
-  }else{
-    sonuc.innerHTML = "BAĞLANDI";
+    document.getElementById("icerik").innerText = "HATA: " + error.message;
+  } else {
+    let html = "<b>Şirket Listesi</b><br><br>";
 
-    data.forEach(x => {
-      sonuc.innerHTML += "<br>🏢 " + x.title;
+    data.forEach(x=>{
+      html += "🏢 " + x.title + "<br>";
     });
+
+    document.getElementById("icerik").innerHTML = html;
   }
 }
 </script>
