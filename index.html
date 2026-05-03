@@ -2,14 +2,17 @@
 <html lang="tr">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ServisNET ASTİS - ANA PANEL</title>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <style>
 body {
-  font-family: Arial;
+  font-family: Arial, sans-serif;
   background:#f5f5f5;
   padding:20px;
+  margin:0;
 }
 
 h2 {
@@ -18,8 +21,15 @@ h2 {
 
 button {
   padding:10px 20px;
-  margin:5px;
+  margin:5px 5px 5px 0;
   cursor:pointer;
+  border:1px solid #999;
+  border-radius:4px;
+  background:white;
+}
+
+button:hover {
+  background:#f0f0f0;
 }
 
 .menu {
@@ -32,6 +42,48 @@ button {
   border-radius:8px;
   margin-top:10px;
   box-shadow:0 0 10px rgba(0,0,0,0.05);
+}
+
+.sirket-satir {
+  padding:10px;
+  border-bottom:1px solid #eee;
+  cursor:pointer;
+}
+
+.sirket-satir:hover {
+  background:#f7f7f7;
+}
+
+.detay-baslik {
+  font-size:20px;
+  font-weight:bold;
+  margin-bottom:15px;
+}
+
+.bilgi-satir {
+  padding:7px 0;
+  border-bottom:1px solid #eee;
+}
+
+.etiket {
+  font-weight:bold;
+  display:inline-block;
+  min-width:160px;
+}
+
+.uyari {
+  background:#fff8e1;
+  border:1px solid #ffe082;
+  padding:10px;
+  border-radius:6px;
+  margin-bottom:10px;
+}
+
+.hata {
+  background:#ffebee;
+  border:1px solid #ef9a9a;
+  padding:10px;
+  border-radius:6px;
 }
 </style>
 </head>
@@ -52,21 +104,106 @@ const supabaseKey = "sb_publishable_YnjXKncf6BGO6gMa4bzAhA_66duBIov";
 
 const client = supabase.createClient(supabaseUrl, supabaseKey);
 
-async function listele(){
-  const { data, error } = await client.from("companies").select("*");
+let sirketler = [];
 
-  if(error){
-    document.getElementById("icerik").innerText = "HATA: " + error.message;
-  } else {
-    let html = "<b>Şirket Listesi</b><br><br>";
+function temizle(deger) {
+  if (deger === null || deger === undefined || deger === "") return "-";
 
-    data.forEach(x=>{
-      html += "🏢 " + x.title + "<br>";
-    });
-
-    document.getElementById("icerik").innerHTML = html;
-  }
+  return String(deger)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }
+
+function alanAdiGoster(alan) {
+  const sozluk = {
+    id: "ID",
+    title: "Şirket Ünvanı",
+    name: "Ad",
+    company_name: "Şirket Adı",
+    tax_number: "Vergi No",
+    tax_office: "Vergi Dairesi",
+    phone: "Telefon",
+    email: "E-posta",
+    address: "Adres",
+    status: "Durum",
+    active: "Aktif",
+    created_at: "Kayıt Tarihi",
+    updated_at: "Güncelleme Tarihi"
+  };
+
+  return sozluk[alan] || alan;
+}
+
+async function listele() {
+  const kutu = document.getElementById("icerik");
+  kutu.innerHTML = "Şirketler yükleniyor...";
+
+  const { data, error } = await client
+    .from("companies")
+    .select("*");
+
+  if (error) {
+    kutu.innerHTML = "<div class='hata'><b>HATA:</b> " + temizle(error.message) + "</div>";
+    return;
+  }
+
+  sirketler = data || [];
+
+  if (sirketler.length === 0) {
+    kutu.innerHTML = "<b>Şirket Listesi</b><br><br>Kayıt bulunamadı.";
+    return;
+  }
+
+  let html = "<b>Şirket Listesi</b><br><br>";
+
+  sirketler.forEach((sirket, index) => {
+    const baslik =
+      sirket.title ||
+      sirket.name ||
+      sirket.company_name ||
+      "Şirket #" + (index + 1);
+
+    html += "<div class='sirket-satir' onclick='detayGoster(" + index + ")'>🏢 " + temizle(baslik) + "</div>";
+  });
+
+  kutu.innerHTML = html;
+}
+
+function detayGoster(index) {
+  const sirket = sirketler[index];
+  const kutu = document.getElementById("icerik");
+
+  if (!sirket) {
+    kutu.innerHTML = "<div class='hata'>Şirket kaydı bulunamadı.</div>";
+    return;
+  }
+
+  const baslik =
+    sirket.title ||
+    sirket.name ||
+    sirket.company_name ||
+    "Şirket Detayı";
+
+  let html = "";
+
+  html += "<button onclick='listele()'>← Şirket Listesine Dön</button>";
+  html += "<div class='detay-baslik'>🏢 " + temizle(baslik) + "</div>";
+  html += "<div class='uyari'>Bu ekran şirket detay görüntüleme ekranıdır. Düzenleme ve pasife alma işlemleri sonraki aşamada güvenli yetkilendirme ile eklenecek.</div>";
+
+  Object.keys(sirket).forEach(alan => {
+    html += "<div class='bilgi-satir'>";
+    html += "<span class='etiket'>" + temizle(alanAdiGoster(alan)) + ":</span> ";
+    html += temizle(sirket[alan]);
+    html += "</div>";
+  });
+
+  kutu.innerHTML = html;
+}
+
+listele();
 </script>
 
 </body>
