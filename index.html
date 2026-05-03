@@ -84,6 +84,51 @@ button:hover {
   border:1px solid #ef9a9a;
   padding:10px;
   border-radius:6px;
+  margin-bottom:10px;
+}
+
+.basarili {
+  background:#e8f5e9;
+  border:1px solid #a5d6a7;
+  padding:10px;
+  border-radius:6px;
+  margin-bottom:10px;
+}
+
+input, select {
+  width:100%;
+  max-width:500px;
+  padding:10px;
+  margin:5px 0 15px 0;
+  border:1px solid #ccc;
+  border-radius:4px;
+  box-sizing:border-box;
+}
+
+.form-etiket {
+  font-weight:bold;
+  display:block;
+  margin-top:5px;
+}
+
+.yonetim-buton {
+  background:#0f172a;
+  color:white;
+  border-color:#0f172a;
+}
+
+.yonetim-buton:hover {
+  background:#1e293b;
+}
+
+.pasif-buton {
+  background:#b91c1c;
+  color:white;
+  border-color:#b91c1c;
+}
+
+.pasif-buton:hover {
+  background:#991b1b;
 }
 </style>
 </head>
@@ -105,6 +150,7 @@ const supabaseKey = "sb_publishable_YnjXKncf6BGO6gMa4bzAhA_66duBIov";
 const client = supabase.createClient(supabaseUrl, supabaseKey);
 
 let sirketler = [];
+let aktifIndex = null;
 
 function temizle(deger) {
   if (deger === null || deger === undefined || deger === "") return "-";
@@ -117,6 +163,15 @@ function temizle(deger) {
     .replaceAll("'", "&#039;");
 }
 
+function formDeger(deger) {
+  if (deger === null || deger === undefined) return "";
+  return String(deger)
+    .replaceAll("&", "&amp;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+}
+
 function alanAdiGoster(alan) {
   const sozluk = {
     id: "ID",
@@ -124,12 +179,15 @@ function alanAdiGoster(alan) {
     name: "Ad",
     company_name: "Şirket Adı",
     tax_number: "Vergi No",
+    tax_no: "Vergi No",
     tax_office: "Vergi Dairesi",
     phone: "Telefon",
     email: "E-posta",
     address: "Adres",
+    opening_vat: "Açılış KDV",
     status: "Durum",
     active: "Aktif",
+    is_active: "Aktif",
     created_at: "Kayıt Tarihi",
     updated_at: "Güncelleme Tarihi"
   };
@@ -166,13 +224,17 @@ async function listele() {
       sirket.company_name ||
       "Şirket #" + (index + 1);
 
-    html += "<div class='sirket-satir' onclick='detayGoster(" + index + ")'>🏢 " + temizle(baslik) + "</div>";
+    const durum = sirket.is_active === false ? " - PASİF" : "";
+
+    html += "<div class='sirket-satir' onclick='detayGoster(" + index + ")'>🏢 " + temizle(baslik) + temizle(durum) + "</div>";
   });
 
   kutu.innerHTML = html;
 }
 
 function detayGoster(index) {
+  aktifIndex = index;
+
   const sirket = sirketler[index];
   const kutu = document.getElementById("icerik");
 
@@ -189,9 +251,10 @@ function detayGoster(index) {
 
   let html = "";
 
+  html += "<button class='yonetim-buton' onclick='yonetimGoster(" + index + ")'>Şirket Yönetimi</button>";
   html += "<button onclick='listele()'>← Şirket Listesine Dön</button>";
+
   html += "<div class='detay-baslik'>🏢 " + temizle(baslik) + "</div>";
-  html += "<div class='uyari'>Bu ekran şirket detay görüntüleme ekranıdır. Düzenleme ve pasife alma işlemleri sonraki aşamada güvenli yetkilendirme ile eklenecek.</div>";
 
   Object.keys(sirket).forEach(alan => {
     html += "<div class='bilgi-satir'>";
@@ -201,6 +264,116 @@ function detayGoster(index) {
   });
 
   kutu.innerHTML = html;
+}
+
+function yonetimGoster(index) {
+  aktifIndex = index;
+
+  const sirket = sirketler[index];
+  const kutu = document.getElementById("icerik");
+
+  if (!sirket) {
+    kutu.innerHTML = "<div class='hata'>Şirket kaydı bulunamadı.</div>";
+    return;
+  }
+
+  const baslik =
+    sirket.title ||
+    sirket.name ||
+    sirket.company_name ||
+    "Şirket Yönetimi";
+
+  let html = "";
+
+  html += "<button onclick='detayGoster(" + index + ")'>← Detaya Dön</button>";
+  html += "<button onclick='listele()'>Şirket Listesi</button>";
+
+  html += "<div class='detay-baslik'>⚙️ " + temizle(baslik) + " - Şirket Yönetimi</div>";
+
+  html += "<div id='mesaj'></div>";
+
+  html += "<label class='form-etiket'>Şirket Ünvanı</label>";
+  html += "<input id='title' value=\"" + formDeger(sirket.title) + "\">";
+
+  html += "<label class='form-etiket'>Vergi Dairesi</label>";
+  html += "<input id='tax_office' value=\"" + formDeger(sirket.tax_office) + "\">";
+
+  html += "<label class='form-etiket'>Vergi No</label>";
+  html += "<input id='tax_no' value=\"" + formDeger(sirket.tax_no) + "\">";
+
+  html += "<label class='form-etiket'>Açılış KDV</label>";
+  html += "<input id='opening_vat' type='number' value=\"" + formDeger(sirket.opening_vat) + "\">";
+
+  html += "<label class='form-etiket'>Durum</label>";
+  html += "<select id='is_active'>";
+  html += "<option value='true' " + (sirket.is_active === true ? "selected" : "") + ">Aktif</option>";
+  html += "<option value='false' " + (sirket.is_active === false ? "selected" : "") + ">Pasif</option>";
+  html += "</select>";
+
+  html += "<br>";
+  html += "<button class='yonetim-buton' onclick='sirketKaydet()'>Kaydet</button>";
+  html += "<button class='pasif-buton' onclick='pasifeAl()'>Pasife Al</button>";
+
+  kutu.innerHTML = html;
+}
+
+async function sirketKaydet() {
+  const mesaj = document.getElementById("mesaj");
+  const sirket = sirketler[aktifIndex];
+
+  if (!sirket) {
+    mesaj.innerHTML = "<div class='hata'>Şirket kaydı bulunamadı.</div>";
+    return;
+  }
+
+  const yeniVeri = {
+    title: document.getElementById("title").value,
+    tax_office: document.getElementById("tax_office").value,
+    tax_no: document.getElementById("tax_no").value,
+    opening_vat: Number(document.getElementById("opening_vat").value || 0),
+    is_active: document.getElementById("is_active").value === "true"
+  };
+
+  mesaj.innerHTML = "Kaydediliyor...";
+
+  const { error } = await client
+    .from("companies")
+    .update(yeniVeri)
+    .eq("id", sirket.id);
+
+  if (error) {
+    mesaj.innerHTML = "<div class='hata'><b>Kayıt hatası:</b> " + temizle(error.message) + "</div>";
+    return;
+  }
+
+  mesaj.innerHTML = "<div class='basarili'>Şirket bilgileri güncellendi.</div>";
+
+  await listele();
+}
+
+async function pasifeAl() {
+  const sirket = sirketler[aktifIndex];
+
+  if (!sirket) {
+    document.getElementById("mesaj").innerHTML = "<div class='hata'>Şirket kaydı bulunamadı.</div>";
+    return;
+  }
+
+  const onay = confirm("Bu şirket pasife alınacak. Devam edilsin mi?");
+  if (!onay) return;
+
+  const { error } = await client
+    .from("companies")
+    .update({ is_active: false })
+    .eq("id", sirket.id);
+
+  if (error) {
+    document.getElementById("mesaj").innerHTML = "<div class='hata'><b>Pasife alma hatası:</b> " + temizle(error.message) + "</div>";
+    return;
+  }
+
+  alert("Şirket pasife alındı.");
+  await listele();
 }
 
 listele();
