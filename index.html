@@ -98,5 +98,99 @@ function clearCompanyForm(){companyId.value="";coTitle.value=coTaxOffice.value=c
 async function saveCompany(){if(!coTitle.value)return alert("Unvan zorunlu.");const obj={title:coTitle.value,tax_office:coTaxOffice.value,tax_no:coTaxNo.value,opening_vat:Number(coOpeningVat.value||0),is_active:true};let r=companyId.value?await client.from("companies").update(obj).eq("id",companyId.value):await client.from("companies").insert(obj);if(r.error)return alert(r.error.message);clearCompanyForm();await loadCompanies();await loadAll()}
 function initStock(){stockSelect.innerHTML=stocks.map(s=>`<option value="${s[0]}|${s[1]}">${s[0]} - ${s[1]}</option>`).join("")}
 window.addEventListener("load",async()=>{initStock();docDate.value=new Date().toISOString().slice(0,10);receiptDate.value=new Date().toISOString().slice(0,10);transDate.value=new Date().toISOString().slice(0,10);reportMonth.value=new Date().toISOString().slice(0,7);await loadCompanies();await loadAll();testConnection()});
+function clearCompanyScopedScreens(){
+  activeDocId = null;
+
+  docs = [];
+  lines = [];
+  purchases = [];
+  sales = [];
+  cariler = [];
+  payments = [];
+
+  if (typeof transactions !== "undefined") {
+    transactions = [];
+  }
+
+  const clearIds = [
+    "docsBody",
+    "linesBody",
+    "paymentsBody",
+    "carilerBody",
+    "purchaseBody",
+    "salesBody",
+    "transactionsBody",
+    "cariReportBox",
+    "reportBox"
+  ];
+
+  clearIds.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = "";
+  });
+
+  const clearSelects = [
+    "paymentSelect",
+    "purPaymentMethod",
+    "salePaymentMethod",
+    "transPayment",
+    "saleCari",
+    "purCari",
+    "transCari"
+  ];
+
+  clearSelects.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = "";
+  });
+
+  const activeInfo = document.getElementById("activeDocInfo");
+  if (activeInfo) {
+    activeInfo.textContent = "Şirket değişti. Bu şirket için belge seçilmedi.";
+  }
+
+  const status = document.getElementById("dbStatus");
+  if (status) {
+    status.textContent = "Yükleniyor";
+    status.style.background = "#fff3cd";
+    status.style.color = "#7a5700";
+  }
+}
+
+loadAll = async function(){
+  const selectedCompanyId = co();
+
+  clearCompanyScopedScreens();
+
+  await loadPayments();
+  if (co() !== selectedCompanyId) return;
+
+  await loadCariler();
+  if (co() !== selectedCompanyId) return;
+
+  await loadDocs();
+  if (co() !== selectedCompanyId) return;
+
+  await loadPurchases();
+  if (co() !== selectedCompanyId) return;
+
+  await loadSales();
+  if (co() !== selectedCompanyId) return;
+
+  if (typeof loadTransactions === "function") {
+    await loadTransactions();
+    if (co() !== selectedCompanyId) return;
+  }
+
+  renderReport();
+  renderCariReport();
+
+  const status = document.getElementById("dbStatus");
+  if (status) {
+    status.textContent = "Bağlı";
+    status.style.background = "#dff4e7";
+    status.style.color = "#126b38";
+  }
+};
 </script>
 </body></html>
