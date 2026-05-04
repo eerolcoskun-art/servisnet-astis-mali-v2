@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ServisNET ASTİS Mali Panel</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box}
+body{font-family:Arial,sans-serif;margin:0;background:#f4f6fa;color:#111}
+header{background:#fff;border-bottom:1px solid #ddd;padding:16px 24px}
+.header-inner{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+.brand-logo{height:72px;max-width:380px;object-fit:contain}
+h1{margin:0;font-size:24px;line-height:1.15}
+small{color:#555;line-height:1.45}
+main{max-width:1340px;margin:20px auto;padding:0 14px}
+.card{background:#fff;border-radius:12px;padding:16px;margin-bottom:14px;box-shadow:0 2px 10px #0001}
+.row{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+label{font-size:12px;font-weight:bold;display:block;margin-bottom:4px}
+input,select,button,textarea{width:100%;padding:9px;border:1px solid #cfd6e0;border-radius:8px;font-size:14px}
+button{background:#0b2454;color:#fff;border:0;font-weight:bold;cursor:pointer}
+button.green{background:#13723a}
+button.red{background:#a51d2d}
+button.gray{background:#666}
+button.purple{background:#6d28d9}
+.tabs{display:flex;gap:8px;flex-wrap:wrap}
+.tab{padding:10px 12px;background:#e8edf5;border-radius:9px;cursor:pointer;font-weight:bold}
+.tab.active{background:#0b2454;color:white}
+.tab.moneytab{background:#ede9fe;color:#3b0764}
+.tab.moneytab.active{background:#6d28d9;color:white}
+.screen{display:none}
+.screen.active{display:block}
+table{width:100%;border-collapse:collapse;margin-top:10px;font-size:12px}
+th,td{border:1px solid #aaa;padding:6px;vertical-align:top}
+th{background:#e2e6ea}
+.status{display:inline-block;padding:4px 8px;border-radius:8px;background:#dff4e7;color:#126b38;font-weight:bold}
+.warn{background:#fff3cd;color:#7a5700;padding:8px;border-radius:8px}
+.boxes{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.box{background:#eef1f5;border-radius:10px;padding:12px}
+.box b{display:block;font-size:12px;color:#555}
+.box span{font-size:20px;font-weight:bold}
+.right{text-align:right}
+.smallbtn{width:auto;padding:8px 12px;margin:2px;display:inline-block}
+.moneycard{border:2px solid #7c3aed;background:#faf5ff}
+.muted{color:#666;font-size:12px}
+.badge{display:inline-block;border-radius:12px;padding:3px 8px;font-size:11px;font-weight:bold}
+.badge.tahsil{background:#dcfce7;color:#166534}
+.badge.tediye{background:#fee2e2;color:#991b1b}
+@media print{
+  body{background:#fff;color:#000}
+  header,.tabs,button,.no-print{display:none!important}
+  main{max-width:none;margin:0;padding:0}
+  .card{box-shadow:none;border:0;padding:8px;margin-bottom:8px}
+  table{font-size:11px}
+  th,td{padding:4px;border:1px solid #999}
+}
+@media(max-width:900px){.row,.boxes{grid-template-columns:1fr}.brand-logo{height:56px;max-width:260px}}
+</style>
+</head>
+<body>
+<header>
+  <div class="header-inner">
+    <img id="screenLogo" class="brand-logo" src="logo.png" alt="ServisNET Türkiye">
+    <div>
+      <h1 id="screenTitle">Marmara Serviscilleri Ve Taşımacılık A.Ş. ( ServisNEt TÜRKİYE )</h1>
+      <small id="screenSub">ASTİS Akıllı Servis Taşımacılığı İşletim Sistemi<br>info@servisnet.net<br>0 (850) 303 70 63</small>
+    </div>
+  </div>
+</header>
+
+<main>
+<section class="card">
+  <div class="row">
+    <div><label>Şirket</label><select id="companySelect"></select></div>
+    <div><label>Veritabanı</label><button class="green" onclick="testConnection()">Test Et</button></div>
+    <div><label>Durum</label><div id="dbStatus" class="status">Bekliyor</div></div>
+  </div>
+</section>
+
+<section class="card">
+  <div class="tabs">
+    <div class="tab active" onclick="tab('docs',this)">Peşin Belgeli Belgeler</div>
+    <div class="tab" onclick="tab('lineEntry',this)">Fiş Satır Girişi</div>
+    <div class="tab" onclick="tab('payments',this)">Kart / Nakit</div>
+    <div class="tab" onclick="tab('carilerScreen',this)">Cari Kartlar</div>
+    <div class="tab moneytab" onclick="tab('cariTrans',this)">Tahsil / Tediye</div>
+    <div class="tab" onclick="tab('purchase',this)">Alış Faturaları</div>
+    <div class="tab" onclick="tab('sales',this)">Satış Faturaları</div>
+    <div class="tab" onclick="tab('cariReport',this);renderCariReport()">Cari Hesap</div>
+    <div class="tab" onclick="tab('companies',this)">Şirket Kartı</div>
+    <div class="tab" onclick="tab('reports',this);renderReport()">KDV / Kâr Raporu</div>
+  </div>
+</section>
+
+<section class="screen active" id="docs">
+  <div class="card">
+    <h3>Yeni Peşin Belgeli Alış Belgesi Aç</h3>
+    <div class="row">
+      <div><label>Belge Tarihi</label><input type="date" id="docDate"></div>
+      <div><label>Belge No</label><input id="docNo" placeholder="Boşsa otomatik"></div>
+      <div><label>&nbsp;</label><button class="green" onclick="createDoc()">Yeni Belge Aç</button></div>
+    </div>
+  </div>
+  <div class="card">
+    <h3>Belgeler</h3>
+    <button class="gray no-print" onclick="printDocList()">Belge Listesi Yazdır</button>
+    <table><thead><tr><th>Durum</th><th>Tarih</th><th>Belge No</th><th>Satır</th><th>Toplam</th><th>İşlem</th></tr></thead><tbody id="docsBody"></tbody></table>
+  </div>
+</section>
+
+<section class="screen" id="lineEntry">
+  <div class="card"><h3>Aktif Belge</h3><div id="activeDocInfo" class="warn">Belge seçilmedi.</div></div>
+  <div class="card">
+    <h3>Fiş Satır Girişi</h3>
+    <div class="row">
+      <div><label>Fiş Tarihi</label><input type="date" id="receiptDate"></div>
+      <div><label>Stok / Gider</label><select id="stockSelect"></select></div>
+      <div><label>KDV Dahil Tutar</label><input type="number" step="0.01" id="grossAmount"></div>
+      <div><label>KDV Oranı</label><select id="vatRate"><option value="0">%0</option><option value="1">%1</option><option value="10">%10</option><option value="20">%20</option></select></div>
+      <div><label>Ödeme</label><select id="paymentSelect"></select></div>
+      <div><label>&nbsp;</label><button onclick="addLine()">Satır Ekle</button></div>
+    </div>
+  </div>
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+      <h3 style="margin:0">Satırlar</h3>
+      <button class="green no-print" style="width:auto;padding:10px 18px" onclick="printActiveDoc()">Fiş Çıktısı Al</button>
+    </div>
+    <table><thead><tr><th>No</th><th>Fiş Tarihi</th><th>Stok</th><th>KDV Oranı</th><th>KDV Dahil</th><th>KDV</th><th>Net</th><th>Ödeme</th><th>Sil</th></tr></thead><tbody id="linesBody"></tbody></table>
+  </div>
+</section>
+
+<section class="screen" id="payments">
+  <div class="card">
+    <h3>Kart / Nakit / Banka Tanımı</h3>
+    <input type="hidden" id="paymentId">
+    <div class="row">
+      <div><label>Ad</label><input id="paymentName" placeholder="Garanti Bonus / Banka Havalesi"></div>
+      <div><label>Banka</label><input id="paymentBank"></div>
+      <div><label>Tip</label><select id="paymentType"><option>Nakit</option><option>Kredi Kartı</option><option>Banka Kartı</option><option>Banka Havalesi / EFT</option></select></div>
+      <div><label>Son 4 Hane</label><input id="paymentLast4"></div>
+      <div><label>Kesim Günü</label><input type="number" id="paymentCutDay" min="1" max="31"></div>
+      <div><label>Ödeme Günü</label><input type="number" id="paymentDueDay" min="1" max="31"></div>
+      <div><label>&nbsp;</label><button onclick="savePayment()">Kaydet</button></div>
+      <div><label>&nbsp;</label><button class="gray" onclick="clearPaymentForm()">Yeni</button></div>
+    </div>
+  </div>
+  <div class="card"><table><thead><tr><th>Ad</th><th>Banka</th><th>Tip</th><th>Son 4</th><th>Kesim</th><th>Ödeme</th><th>İşlem</th></tr></thead><tbody id="paymentsBody"></tbody></table></div>
+</section>
+
+<section class="screen" id="carilerScreen">
+  <div class="card">
+    <h3>Cari Kart Tanımı</h3>
+    <input type="hidden" id="cariId">
+    <div class="row">
+      <div><label>Cari Tipi</label><select id="cariType"><option>Müşteri</option><option>Tedarikçi</option><option>Her İkisi</option></select></div>
+      <div><label>Hesap Kodu</label><select id="cariAccount"><option value="120">120 Alıcılar</option><option value="320">320 Satıcılar</option><option value="120/320">120/320 Her İkisi</option></select></div>
+      <div><label>Cari Ünvan</label><input id="cariTitle"></div>
+      <div><label>Vergi Dairesi</label><input id="cariTaxOffice"></div>
+      <div><label>Vergi No</label><input id="cariTaxNo"></div>
+      <div><label>Devreden Borç</label><input type="number" step="0.01" id="cariOpeningDebit" value="0"></div>
+      <div><label>Devreden Alacak</label><input type="number" step="0.01" id="cariOpeningCredit" value="0"></div>
+      <div><label>Telefon</label><input id="cariPhone"></div>
+      <div><label>E-posta</label><input id="cariEmail"></div>
+      <div><label>Adres</label><input id="cariAddress"></div>
+      <div><label>&nbsp;</label><button onclick="saveCari()">Cari Kaydet</button></div>
+      <div><label>&nbsp;</label><button class="gray" onclick="clearCariForm()">Yeni</button></div>
+    </div>
+  </div>
+  <div class="card"><table><thead><tr><th>Tip</th><th>Hesap</th><th>Ünvan</th><th>VKN</th><th>Dev. Borç</th><th>Dev. Alacak</th><th>İşlem</th></tr></thead><tbody id="carilerBody"></tbody></table></div>
+</section>
+
+<section class="screen" id="cariTrans">
+  <div class="card moneycard">
+    <h3>Tahsil / Tediye Modülü</h3>
+    <p class="muted">Fatura hareketleri cariden silinmez. Tahsil ve tediye ayrı hareket olarak cari karta işlenir.</p>
+    <input type="hidden" id="transId">
+    <div class="row">
+      <div><label>Ödeme / Tahsil Tarihi</label><input type="date" id="transDate"></div>
+      <div><label>Cari Kart</label><select id="transCari"></select></div>
+      <div><label>Belge No</label><input id="transDocNo"></div>
+      <div><label>Hareket Tipi</label><select id="transType"><option value="Tahsil">Tahsil</option><option value="Tediye">Tediye</option></select></div>
+      <div><label>Tutar</label><input type="number" step="0.01" id="transAmount"></div>
+      <div><label>Ödeme Yöntemi</label><select id="transPayment"></select></div>
+      <div><label>Açıklama</label><input id="transNote"></div>
+      <div><label>&nbsp;</label><button class="purple" onclick="saveTransaction()">Hareket Kaydet</button></div>
+      <div><label>&nbsp;</label><button class="gray" onclick="clearTransactionForm()">Yeni</button></div>
+    </div>
+  </div>
+  <div class="card">
+    <h3>Tahsil / Tediye Hareketleri</h3>
+    <table><thead><tr><th>Tarih</th><th>Cari</th><th>Belge No</th><th>Tip</th><th>Tutar</th><th>Yöntem</th><th>Açıklama</th><th>İşlem</th></tr></thead><tbody id="transactionsBody"></tbody></table>
+  </div>
+</section>
+
+<section class="screen" id="purchase">
+  <div class="card">
+    <h3>Alış Faturası</h3>
+    <input type="hidden" id="purId">
+    <div class="row">
+      <div><label>Tarih</label><input type="date" id="purDate"></div>
+      <div><label>Tedarikçi Cari</label><select id="purCari"></select></div>
+      <div><label>Fatura No</label><input id="purNo"></div>
+      <div><label>Açıklama</label><input id="purDesc"></div>
+      <div><label>KDV Oranı</label><select id="purVat"><option value="0">%0</option><option value="1">%1</option><option value="10">%10</option><option value="20">%20</option></select></div>
+      <div><label>Tevkifat</label><select id="purWithholding"><option value="0">Yok</option><option value="0.5">5/10</option></select></div>
+      <div><label>KDV Hariç Matrah</label><input type="number" step="0.01" id="purNet"></div>
+      <div><label>&nbsp;</label><button onclick="savePurchase()">Alış Faturasını Kaydet</button></div>
+      <div><label>&nbsp;</label><button class="gray" onclick="clearPurchaseForm()">Yeni</button></div>
+    </div>
+  </div>
+  <div class="card"><table><thead><tr><th>Tarih</th><th>Cari</th><th>No</th><th>Açıklama</th><th>KDV</th><th>Tevkifat</th><th>Ödenecek</th><th>İşlem</th></tr></thead><tbody id="purchaseBody"></tbody></table></div>
+</section>
+
+<section class="screen" id="sales">
+  <div class="card">
+    <h3>Satış Faturası</h3>
+    <input type="hidden" id="saleId">
+    <div class="row">
+      <div><label>Tarih</label><input type="date" id="saleDate"></div>
+      <div><label>Müşteri Cari</label><select id="saleCari"></select></div>
+      <div><label>Fatura No</label><input id="saleNo"></div>
+      <div><label>Açıklama</label><input id="saleDesc"></div>
+      <div><label>KDV Oranı</label><input value="%20 Sabit" disabled></div>
+      <div><label>Tevkifat</label><select id="saleWithholding"><option value="0">Yok</option><option value="0.5">5/10 - 614</option></select></div>
+      <div><label>KDV Hariç Matrah</label><input type="number" step="0.01" id="saleNet"></div>
+      <div><label>&nbsp;</label><button onclick="saveSale()">Satış Faturasını Kaydet</button></div>
+      <div><label>&nbsp;</label><button class="gray" onclick="clearSaleForm()">Yeni</button></div>
+    </div>
+  </div>
+  <div class="card"><table><thead><tr><th>Tarih</th><th>Müşteri</th><th>No</th><th>Açıklama</th><th>Net</th><th>KDV</th><th>Tevkifat</th><th>Tahsil Edilecek</th><th>İşlem</th></tr></thead><tbody id="salesBody"></tbody></table></div>
+</section>
+
+<section class="screen" id="cariReport">
+  <div class="card">
+    <h3>Cari Hesap Takibi</h3>
+    <button class="gray no-print" onclick="renderCariReport();window.print()">Cari Raporu Yazdır</button>
+    <div id="cariReportBox"></div>
+  </div>
+</section>
+
+<section class="screen" id="companies">
+  <div class="card">
+    <h3>Şirket Kartı</h3>
+    <input type="hidden" id="companyId">
+    <div class="row">
+      <div><label>Unvan</label><input id="coTitle"></div>
+      <div><label>Vergi Dairesi</label><input id="coTaxOffice"></div>
+      <div><label>Vergi No</label><input id="coTaxNo"></div>
+      <div><label>İlk Devreden KDV</label><input type="number" step="0.01" id="coOpeningVat"></div>
+      <div><label>Çıktı Başlığı</label><input id="coPrintTitle"></div>
+      <div><label>Çıktı Alt Başlık</label><input id="coPrintSubtitle"></div>
+      <div><label>Çıktı E-posta</label><input id="coPrintEmail"></div>
+      <div><label>Çıktı Telefon</label><input id="coPrintPhone"></div>
+      <div><label>Logo Dosyası</label><input id="coLogoFile" placeholder="logo.png"></div>
+      <div><label>&nbsp;</label><button onclick="saveCompany()">Şirket Kaydet</button></div>
+      <div><label>&nbsp;</label><button class="gray" onclick="clearCompanyForm()">Yeni</button></div>
+    </div>
+  </div>
+  <div class="card"><table><thead><tr><th>Unvan</th><th>VD</th><th>VKN</th><th>Devreden KDV</th><th>İşlem</th></tr></thead><tbody id="companiesBody"></tbody></table></div>
+</section>
+
+<section class="screen" id="reports">
+  <div class="card">
+    <h3>KDV / Kâr Raporu</h3>
+    <div class="row">
+      <div><label>Ay</label><input type="month" id="reportMonth"></div>
+      <div><label>&nbsp;</label><button onclick="renderReport()">Raporu Hesapla</button></div>
+      <div><label>&nbsp;</label><button class="gray no-print" onclick="window.print()">Yazdır</button></div>
+    </div>
+  </div>
+  <div class="card" id="reportBox"></div>
+</section>
+
+</main>
+
+<script>
+const supabaseUrl="https://estdjfvlpebkmelzewjo.supabase.co";
+const supabaseKey="sb_publishable_YnjXKncf6BGO6gMa4bzAhA_66duBIov";
+const client=supabase.createClient(supabaseUrl,supabaseKey);
+
+let companies=[],payments=[],docs=[],lines=[],purchases=[],sales=[],cariler=[],transactions=[],activeDocId=null,loadingCompany=false;
+
+const stocks=[
+  ["770.02.001","Yakıt"],["770.02.003","Periyodik Bakım"],["770.02.004","Mekanik Onarım"],
+  ["770.02.006","Lastik"],["770.05.004","Temizlik / İkram"],["770.05.005","Personel Yemek"],
+  ["770.06.001","Muhasebe"],["770.06.003","Noter / Harç"],["770.99.001","Diğer Gider"]
+];
+
+function byId(id){return document.getElementById(id)}
+function val(id){const el=byId(id);return el?el.value:""}
+function setVal(id,v){const el=byId(id);if(el)el.value=v??""}
+function money(n){return Number(n||0).toLocaleString("tr-TR",{minimumFractionDigits:2,maximumFractionDigits:2})}
+function todayTR(d){const x=new Date(d);return isNaN(x)?(d||""):x.toLocaleDateString("tr-TR")}
+function isoToday(){return new Date().toISOString().slice(0,10)}
+function esc(s){return String(s??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;")}
+function co(){return val("companySelect") || null}
+function curCompany(){return companies.find(x=>x.id===co())||{}}
+function isUuid(v){return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(v||""))}
+function requireCompany(){if(!isUuid(co())){alert("Önce şirket seç.");return null}return co()}
+function calcFromGross(g,r){let net=Number(r)==0?Number(g):Number(g)/(1+Number(r)/100);return{net,vat:Number(g)-net,gross:Number(g)}}
+function calcFromNet(n,r){let vat=Number(n)*Number(r)/100;return{net:Number(n),vat,gross:Number(n)+vat}}
+function inMonth(d,m){return d&&d.slice(0,7)===m}
+
+function setStatus(txt,color="#dff4e7",fg="#126b38"){
+  const el=byId("dbStatus");
+  if(el){el.textContent=txt;el.style.background=color;el.style.color=fg}
+}
+
+function tab(id,e){
+  document.querySelectorAll(".screen").forEach(x=>x.classList.remove("active"));
+  byId(id).classList.add("active");
+  document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
+  e.classList.add("active");
+}
+
+function clearScopedData(){
+  activeDocId=null;
+  docs=[];lines=[];purchases=[];sales=[];cariler=[];payments=[];transactions=[];
+  ["docsBody","linesBody","paymentsBody","carilerBody","purchaseBody","salesBody","transactionsBody","cariReportBox","reportBox"].forEach(id=>{const el=byId(id);if(el)el.innerHTML=""});
+  ["paymentSelect","transPayment","saleCari","purCari","transCari"].forEach(id=>{const el=byId(id);if(el)el.innerHTML=""});
+  const info=byId("activeDocInfo"); if(info) info.textContent="Bu şirket için belge seçilmedi.";
+}
+
+function updateScreenHeader(){
+  const c=curCompany();
+  const title=c.print_title || c.title || "ServisNET ASTİS Mali Panel";
+  byId("screenTitle").textContent=title;
+  byId("screenSub").innerHTML=[
+    c.print_subtitle || "ASTİS Akıllı Servis Taşımacılığı İşletim Sistemi",
+    c.print_email || "info@servisnet.net",
+    c.print_phone || "0 (850) 303 70 63"
+  ].filter(Boolean).map(esc).join("<br>");
+  const logo=byId("screenLogo");
+  if(c.logo_file){logo.src=c.logo_file;logo.style.display="block"} else {logo.src="logo.png";logo.style.display="block"}
+}
+
+function fillStockSelect(){
+  byId("stockSelect").innerHTML=stocks.map(([c,n])=>`<option value="${c}|${n}">${c} - ${n}</option>`).join("");
+}
+
+async function testConnection(){
+  const {error}=await client.from("companies").select("id").limit(1);
+  if(error){setStatus("Hata","#f8d7da","#842029");alert(error.message)}
+  else setStatus("Bağlı");
+}
+
+async function ensureDefaults(){
+  const {data,error}=await client.from("companies").select("id").limit(1);
+  if(error)return;
+  if(!data||!data.length){
+    await client.from("companies").insert([
+      {title:"Marmara Serviscileri ve Taşımacılık A.Ş.",tax_office:"İlyasbey Vergi Dairesi",tax_no:"6121540261",opening_vat:0,is_active:true,print_title:"Marmara Serviscilleri Ve Taşımacılık A.Ş. ( ServisNEt TÜRKİYE )",print_subtitle:"ASTİS Akıllı Servis Taşımacılığı İşletim Sistemi",print_email:"info@servisnet.net",print_phone:"0 (850) 303 70 63",logo_file:"logo.png"},
+      {title:"Huffazoğlu Yapı Malzemeleri İnş. Ltd. Şti.",tax_office:"",tax_no:"",opening_vat:0,is_active:true}
+    ]);
+  }
+}
+
+async function loadCompanies(){
+  const selected=co();
+  const {data,error}=await client.from("companies").select("*").order("created_at",{ascending:true});
+  if(error){alert(error.message);return}
+  companies=data||[];
+  byId("companySelect").innerHTML=companies.map(c=>`<option value="${c.id}">${esc(c.title)}</option>`).join("");
+  if(selected && companies.some(c=>c.id===selected)) byId("companySelect").value=selected;
+  else if(companies[0]) byId("companySelect").value=companies[0].id;
+  renderCompanies();
+  updateScreenHeader();
+}
+
+async function onCompanyChange(){
+  if(loadingCompany)return;
+  loadingCompany=true;
+  const selected=co();
+  clearScopedData();
+  setStatus("Yükleniyor","#fff3cd","#7a5700");
+  updateScreenHeader();
+  if(!isUuid(selected)){loadingCompany=false;return}
+  try{
+    await loadPayments(selected); if(co()!==selected)return;
+    await loadCariler(selected); if(co()!==selected)return;
+    await loadDocs(selected); if(co()!==selected)return;
+    await loadPurchases(selected); if(co()!==selected)return;
+    await loadSales(selected); if(co()!==selected)return;
+    await loadTransactions(selected); if(co()!==selected)return;
+    renderReport(); renderCariReport();
+    setStatus("Bağlı");
+  }catch(err){
+    setStatus("Hata","#f8d7da","#842029");
+    alert(err.message||err);
+  }finally{
+    loadingCompany=false;
+  }
+}
+
+async function loadAll(){await onCompanyChange()}
+
+async function loadPayments(companyId=co()){
+  if(!isUuid(companyId))return;
+  const {data,error}=await client.from("payment_methods").select("*").eq("company_id",companyId).order("created_at",{ascending:true});
+  if(error)throw error;
+  payments=data||[];
+  if(!payments.length){
+    await client.from("payment_methods").insert({company_id:companyId,name:"Nakit",bank:"Kasa",type:"Nakit"});
+    return loadPayments(companyId);
+  }
+  const opts=payments.map(p=>`<option value="${p.id}">${esc(p.name)}${p.last4?" ****"+esc(p.last4):""}</option>`).join("");
+  ["paymentSelect","transPayment"].forEach(id=>{const el=byId(id);if(el)el.innerHTML=opts});
+  renderPayments();
+}
+
+async function loadCariler(companyId=co()){
+  if(!isUuid(companyId))return;
+  const {data,error}=await client.from("cariler").select("*").eq("company_id",companyId).order("title",{ascending:true});
+  if(error)throw error;
+  cariler=data||[];
+  renderCariler();
+  fillCariSelects();
+}
+
+async function loadDocs(companyId=co()){
+  if(!isUuid(companyId))return;
+  const {data,error}=await client.from("cash_purchase_docs").select("*").eq("company_id",companyId).order("doc_date",{ascending:false});
+  if(error)throw error;
+  docs=data||[];
+  const {data:lineData,error:lineErr}=await client.from("cash_purchase_lines").select("*").eq("company_id",companyId).order("line_no",{ascending:true});
+  if(lineErr)throw lineErr;
+  lines=lineData||[];
+  if(activeDocId && !docs.some(d=>d.id===activeDocId)) activeDocId=null;
+  if(!activeDocId && docs[0]) activeDocId=docs[0].id;
+  renderDocs();
+  renderActiveDoc();
+}
+
+async function loadPurchases(companyId=co()){
+  if(!isUuid(companyId))return;
+  const {data,error}=await client.from("purchase_invoices").select("*").eq("company_id",companyId).order("invoice_date",{ascending:false});
+  if(error)throw error;
+  purchases=data||[];
+  renderPurchases();
+}
+
+async function loadSales(companyId=co()){
+  if(!isUuid(companyId))return;
+  const {data,error}=await client.from("sales_invoices").select("*").eq("company_id",companyId).order("invoice_date",{ascending:false});
+  if(error)throw error;
+  sales=data||[];
+  renderSales();
+}
+
+async function loadTransactions(companyId=co()){
+  if(!isUuid(companyId))return;
+  const {data,error}=await client.from("cari_transactions").select("*").eq("company_id",companyId).order("transaction_date",{ascending:false});
+  if(error)throw error;
+  transactions=data||[];
+  renderTransactions();
+}
+
+/* RENDER */
+function renderPayments(){
+  byId("paymentsBody").innerHTML=payments.map(p=>`<tr>
+    <td>${esc(p.name)}</td><td>${esc(p.bank||"")}</td><td>${esc(p.type||"")}</td><td>${esc(p.last4||"")}</td><td>${p.cut_day||""}</td><td>${p.due_day||""}</td>
+    <td><button class="smallbtn" onclick="editPayment('${p.id}')">Düzenle</button></td>
+  </tr>`).join("");
+}
+
+function renderCariler(){
+  byId("carilerBody").innerHTML=cariler.map(x=>`<tr>
+    <td>${esc(x.cari_type)}</td><td>${esc(x.account_code||"")}</td><td>${esc(x.title)}</td><td>${esc(x.tax_no||"")}</td><td class="right">${money(x.opening_debit)}</td><td class="right">${money(x.opening_credit)}</td>
+    <td><button class="smallbtn" onclick="editCari('${x.id}')">Düzenle</button></td>
+  </tr>`).join("");
+}
+
+function fillCariSelects(){
+  const all=cariler.map(x=>`<option value="${x.id}">${esc(x.title)} - ${esc(x.account_code||"")}</option>`).join("");
+  const cust=cariler.filter(x=>["Müşteri","Her İkisi"].includes(x.cari_type)||String(x.account_code||"").includes("120")).map(x=>`<option value="${x.id}">${esc(x.title)}</option>`).join("");
+  const supp=cariler.filter(x=>["Tedarikçi","Her İkisi"].includes(x.cari_type)||String(x.account_code||"").includes("320")).map(x=>`<option value="${x.id}">${esc(x.title)}</option>`).join("");
+  byId("saleCari").innerHTML=cust;
+  byId("purCari").innerHTML=supp;
+  byId("transCari").innerHTML=all;
+}
+
+function renderDocs(){
+  byId("docsBody").innerHTML=docs.map(d=>{
+    const dl=lines.filter(l=>l.doc_id===d.id);
+    const total=dl.reduce((a,b)=>a+Number(b.gross_amount||0),0);
+    return `<tr><td>${esc(d.status)}</td><td>${esc(d.doc_date)}</td><td>${esc(d.doc_no)}</td><td>${dl.length}</td><td class="right">${money(total)}</td>
+    <td><button class="smallbtn" onclick="selectDoc('${d.id}')">Seç</button><button class="smallbtn" onclick="closeDoc('${d.id}')">Kapat</button><button class="smallbtn red" onclick="deleteDoc('${d.id}')">Sil</button></td></tr>`
+  }).join("");
+}
+
+function renderActiveDoc(){
+  const d=docs.find(x=>x.id===activeDocId);
+  if(!d){byId("activeDocInfo").textContent="Belge seçilmedi.";byId("linesBody").innerHTML="";return}
+  byId("activeDocInfo").textContent=`Aktif Belge: ${d.doc_no} / ${d.doc_date} / ${d.status}`;
+  const dl=lines.filter(l=>l.doc_id===d.id);
+  byId("linesBody").innerHTML=dl.map(l=>{
+    const p=payments.find(x=>x.id===l.payment_method_id);
+    return `<tr><td>${l.line_no}</td><td>${esc(l.receipt_date)}</td><td>${esc(l.stock_name)}</td><td>%${Number(l.vat_rate||0)}</td><td class="right">${money(l.gross_amount)}</td><td class="right">${money(l.vat_amount)}</td><td class="right">${money(l.net_amount)}</td><td>${p?esc(p.name):""}</td><td><button class="red" onclick="deleteLine('${l.id}')">Sil</button></td></tr>`
+  }).join("");
+}
+
+function renderPurchases(){
+  byId("purchaseBody").innerHTML=purchases.map(x=>{
+    const ca=cariler.find(c=>c.id===x.cari_id);
+    const payable=Number(x.gross_amount||0)-Number(x.withholding_amount||0);
+    return `<tr><td>${esc(x.invoice_date)}</td><td>${esc(ca?ca.title:(x.vendor||""))}</td><td>${esc(x.invoice_no)}</td><td>${esc(x.description||"")}</td><td>%${Number(x.vat_rate||0)}</td><td class="right">${money(x.withholding_amount)}</td><td class="right">${money(payable)}</td><td><button class="smallbtn" onclick="editPurchase('${x.id}')">Düzenle</button><button class="smallbtn red" onclick="deletePurchase('${x.id}')">Sil</button></td></tr>`
+  }).join("");
+}
+
+function renderSales(){
+  byId("salesBody").innerHTML=sales.map(x=>{
+    const ca=cariler.find(c=>c.id===x.cari_id);
+    const collect=Number(x.gross_amount||0)-Number(x.withholding_amount||0);
+    return `<tr><td>${esc(x.invoice_date)}</td><td>${esc(ca?ca.title:(x.customer||""))}</td><td>${esc(x.invoice_no)}</td><td>${esc(x.description||"")}</td><td class="right">${money(x.net_amount)}</td><td class="right">${money(x.vat_amount)}</td><td class="right">${money(x.withholding_amount)}</td><td class="right">${money(collect)}</td><td><button class="smallbtn" onclick="editSale('${x.id}')">Düzenle</button><button class="smallbtn red" onclick="deleteSale('${x.id}')">Sil</button></td></tr>`
+  }).join("");
+}
+
+function renderTransactions(){
+  byId("transactionsBody").innerHTML=transactions.map(x=>{
+    const ca=cariler.find(c=>c.id===x.cari_id);
+    const p=payments.find(pm=>pm.id===x.payment_method_id);
+    const badge=x.transaction_type==="Tahsil"?"tahsil":"tediye";
+    return `<tr><td>${esc(x.transaction_date)}</td><td>${esc(ca?ca.title:"")}</td><td>${esc(x.document_no||"")}</td><td><span class="badge ${badge}">${esc(x.transaction_type)}</span></td><td class="right">${money(x.amount)}</td><td>${esc(p?p.name:"")}</td><td>${esc(x.note||"")}</td><td><button class="smallbtn" onclick="editTransaction('${x.id}')">Düzenle</button><button class="smallbtn red" onclick="deleteTransaction('${x.id}')">Sil</button></td></tr>`
+  }).join("");
+}
+
+function renderCompanies(){
+  byId("companiesBody").innerHTML=companies.map(c=>`<tr><td>${esc(c.title)}</td><td>${esc(c.tax_office||"")}</td><td>${esc(c.tax_no||"")}</td><td class="right">${money(c.opening_vat)}</td><td><button onclick="editCompany('${c.id}')">Düzenle</button></td></tr>`).join("");
+}
+
+/* PEŞİN BELGELİ ALIŞ */
+async function createDoc(){
+  const companyId=requireCompany(); if(!companyId)return;
+  const date=val("docDate")||isoToday();
+  const monthKey=date.slice(0,7);
+  const sameMonth=docs.filter(d=>(d.doc_date||"").slice(0,7)===monthKey).length;
+  const no=val("docNo")||("PBA-"+monthKey.replace("-","")+"-"+String(sameMonth+1).padStart(3,"0"));
+  const {error}=await client.from("cash_purchase_docs").insert({company_id:companyId,doc_date:date,doc_no:no,status:"open"});
+  if(error)return alert(error.message);
+  setVal("docNo","");
+  await loadDocs(companyId);
+}
+
+function selectDoc(id){
+  if(!docs.some(d=>d.id===id))return;
+  activeDocId=id;
+  renderActiveDoc();
+  tab("lineEntry",document.querySelector('[onclick*="lineEntry"]'));
+}
+
+async function closeDoc(id){
+  const {error}=await client.from("cash_purchase_docs").update({status:"closed"}).eq("id",id);
+  if(error)return alert(error.message);
+  await loadDocs();
+}
+
+async function deleteDoc(id){
+  if(!confirm("Bu belge ve içindeki tüm fiş satırları silinsin mi?"))return;
+  let e1=await client.from("cash_purchase_lines").delete().eq("doc_id",id); if(e1.error)return alert(e1.error.message);
+  let e2=await client.from("cash_purchase_docs").delete().eq("id",id); if(e2.error)return alert(e2.error.message);
+  if(activeDocId===id)activeDocId=null;
+  await loadDocs();
+}
+
+async function addLine(){
+  const companyId=requireCompany(); if(!companyId)return;
+  const d=docs.find(x=>x.id===activeDocId);
+  if(!d)return alert("Önce bu şirkete ait belge seç.");
+  if(d.company_id!==companyId)return alert("Aktif belge seçili şirketle uyumlu değil. Belgeyi yeniden seç.");
+  if(d.status==="closed")return alert("Kapalı belgeye satır eklenmez.");
+  if(!val("receiptDate")||!val("grossAmount"))return alert("Fiş tarihi ve tutar zorunlu.");
+  if(!isUuid(val("paymentSelect")))return alert("Ödeme yöntemi boş. Önce bu şirket için Kart / Nakit tanımı yap.");
+  const [code,name]=val("stockSelect").split("|");
+  const rate=Number(val("vatRate"));
+  const c=calcFromGross(Number(val("grossAmount")||0),rate);
+  const lineNo=lines.filter(l=>l.doc_id===d.id).length+1;
+  const payload={company_id:companyId,doc_id:d.id,line_no:lineNo,receipt_date:val("receiptDate"),stock_code:code,stock_name:name,vat_rate:rate,net_amount:c.net,vat_amount:c.vat,gross_amount:c.gross,payment_method_id:val("paymentSelect")};
+  const {error}=await client.from("cash_purchase_lines").insert(payload);
+  if(error)return alert(error.message);
+  setVal("grossAmount","");
+  await loadDocs(companyId);
+}
+
+async function deleteLine(id){
+  const {error}=await client.from("cash_purchase_lines").delete().eq("id",id);
+  if(error)return alert(error.message);
+  await loadDocs();
+}
+
+/* PAYMENT */
+function clearPaymentForm(){["paymentId","paymentName","paymentBank","paymentLast4","paymentCutDay","paymentDueDay"].forEach(id=>setVal(id,""));setVal("paymentType","Nakit")}
+function editPayment(id){
+  const p=payments.find(x=>x.id===id); if(!p)return;
+  setVal("paymentId",p.id);setVal("paymentName",p.name);setVal("paymentBank",p.bank);setVal("paymentType",p.type||"Nakit");setVal("paymentLast4",p.last4);setVal("paymentCutDay",p.cut_day);setVal("paymentDueDay",p.due_day);
+}
+async function savePayment(){
+  const companyId=requireCompany(); if(!companyId)return;
+  if(!val("paymentName"))return alert("Ad zorunlu.");
+  const payload={company_id:companyId,name:val("paymentName"),bank:val("paymentBank"),type:val("paymentType"),last4:val("paymentLast4"),cut_day:val("paymentCutDay")?Number(val("paymentCutDay")):null,due_day:val("paymentDueDay")?Number(val("paymentDueDay")):null};
+  let res;
+  if(val("paymentId"))res=await client.from("payment_methods").update(payload).eq("id",val("paymentId"));
+  else res=await client.from("payment_methods").insert(payload);
+  if(res.error)return alert(res.error.message);
+  clearPaymentForm();
+  await loadPayments(companyId);
+}
+
+/* CARİ */
+function clearCariForm(){
+  ["cariId","cariTitle","cariTaxOffice","cariTaxNo","cariOpeningDebit","cariOpeningCredit","cariPhone","cariEmail","cariAddress"].forEach(id=>setVal(id,""));
+  setVal("cariOpeningDebit","0");setVal("cariOpeningCredit","0");setVal("cariType","Müşteri");setVal("cariAccount","120");
+}
+function editCari(id){
+  const c=cariler.find(x=>x.id===id); if(!c)return;
+  setVal("cariId",c.id);setVal("cariType",c.cari_type||"Müşteri");setVal("cariAccount",c.account_code||"120");setVal("cariTitle",c.title);setVal("cariTaxOffice",c.tax_office);setVal("cariTaxNo",c.tax_no);setVal("cariOpeningDebit",c.opening_debit||0);setVal("cariOpeningCredit",c.opening_credit||0);setVal("cariPhone",c.phone);setVal("cariEmail",c.email);setVal("cariAddress",c.address);
+}
+async function saveCari(){
+  const companyId=requireCompany(); if(!companyId)return;
+  if(!val("cariTitle"))return alert("Cari ünvan zorunlu.");
+  const payload={company_id:companyId,cari_type:val("cariType"),account_code:val("cariAccount"),title:val("cariTitle"),tax_office:val("cariTaxOffice"),tax_no:val("cariTaxNo"),opening_debit:Number(val("cariOpeningDebit")||0),opening_credit:Number(val("cariOpeningCredit")||0),opening_balance:Number(val("cariOpeningDebit")||0)-Number(val("cariOpeningCredit")||0),phone:val("cariPhone"),email:val("cariEmail"),address:val("cariAddress")};
+  let res;
+  if(val("cariId"))res=await client.from("cariler").update(payload).eq("id",val("cariId"));
+  else res=await client.from("cariler").insert(payload);
+  if(res.error)return alert(res.error.message);
+  clearCariForm();
+  await loadCariler(companyId);
+}
+
+/* FATURALAR */
+function clearPurchaseForm(){["purId","purDate","purNo","purDesc","purNet"].forEach(id=>setVal(id,""));setVal("purVat","20");setVal("purWithholding","0")}
+function editPurchase(id){
+  const x=purchases.find(p=>p.id===id); if(!x)return;
+  setVal("purId",x.id);setVal("purDate",x.invoice_date);setVal("purCari",x.cari_id);setVal("purNo",x.invoice_no);setVal("purDesc",x.description);setVal("purVat",x.vat_rate??20);setVal("purWithholding",x.withholding_rate||0);setVal("purNet",x.net_amount||0);
+}
+async function savePurchase(){
+  const companyId=requireCompany(); if(!companyId)return;
+  if(!isUuid(val("purCari")))return alert("Tedarikçi cari seç.");
+  const net=Number(val("purNet")||0), rate=Number(val("purVat")||0), wh=Number(val("purWithholding")||0);
+  const c=calcFromNet(net,rate), withholding=c.vat*wh;
+  const ca=cariler.find(x=>x.id===val("purCari"));
+  const payload={company_id:companyId,cari_id:val("purCari"),vendor:ca?ca.title:"",invoice_date:val("purDate")||isoToday(),invoice_no:val("purNo"),description:val("purDesc"),vat_rate:rate,net_amount:c.net,vat_amount:c.vat,gross_amount:c.gross,withholding_rate:wh,withholding_code:wh?"5/10":"",withholding_amount:withholding,payment_status:"Açık"};
+  let res;
+  if(val("purId"))res=await client.from("purchase_invoices").update(payload).eq("id",val("purId"));
+  else res=await client.from("purchase_invoices").insert(payload);
+  if(res.error)return alert(res.error.message);
+  clearPurchaseForm();
+  await loadPurchases(companyId);
+  renderCariReport();
+}
+async function deletePurchase(id){
+  if(!confirm("Alış faturası silinsin mi? Cari etkisi de kalkar."))return;
+  const {error}=await client.from("purchase_invoices").delete().eq("id",id);
+  if(error)return alert(error.message);
+  await loadPurchases();
+  renderCariReport();
+}
+
+function clearSaleForm(){["saleId","saleDate","saleNo","saleDesc","saleNet"].forEach(id=>setVal(id,""));setVal("saleWithholding","0")}
+function editSale(id){
+  const x=sales.find(s=>s.id===id); if(!x)return;
+  setVal("saleId",x.id);setVal("saleDate",x.invoice_date);setVal("saleCari",x.cari_id);setVal("saleNo",x.invoice_no);setVal("saleDesc",x.description);setVal("saleWithholding",x.withholding_rate||0);setVal("saleNet",x.net_amount||0);
+}
+async function saveSale(){
+  const companyId=requireCompany(); if(!companyId)return;
+  if(!isUuid(val("saleCari")))return alert("Müşteri cari seç.");
+  const net=Number(val("saleNet")||0), rate=20, wh=Number(val("saleWithholding")||0);
+  const c=calcFromNet(net,rate), withholding=c.vat*wh;
+  const ca=cariler.find(x=>x.id===val("saleCari"));
+  const payload={company_id:companyId,cari_id:val("saleCari"),customer:ca?ca.title:"",invoice_date:val("saleDate")||isoToday(),invoice_no:val("saleNo"),description:val("saleDesc"),vat_rate:rate,net_amount:c.net,vat_amount:c.vat,gross_amount:c.gross,withholding_rate:wh,withholding_code:wh?"5/10 - 614":"",withholding_amount:withholding,collection_status:"Açık"};
+  let res;
+  if(val("saleId"))res=await client.from("sales_invoices").update(payload).eq("id",val("saleId"));
+  else res=await client.from("sales_invoices").insert(payload);
+  if(res.error)return alert(res.error.message);
+  clearSaleForm();
+  await loadSales(companyId);
+  renderCariReport();
+}
+async function deleteSale(id){
+  if(!confirm("Satış faturası silinsin mi? Cari etkisi de kalkar."))return;
+  const {error}=await client.from("sales_invoices").delete().eq("id",id);
+  if(error)return alert(error.message);
+  await loadSales();
+  renderCariReport();
+}
+
+/* TAHSİL / TEDİYE */
+function clearTransactionForm(){["transId","transDate","transDocNo","transAmount","transNote"].forEach(id=>setVal(id,""));setVal("transType","Tahsil")}
+function editTransaction(id){
+  const x=transactions.find(t=>t.id===id); if(!x)return;
+  setVal("transId",x.id);setVal("transDate",x.transaction_date);setVal("transCari",x.cari_id);setVal("transDocNo",x.document_no);setVal("transType",x.transaction_type);setVal("transAmount",x.amount);setVal("transPayment",x.payment_method_id);setVal("transNote",x.note);
+}
+async function saveTransaction(){
+  const companyId=requireCompany(); if(!companyId)return;
+  if(!isUuid(val("transCari")))return alert("Cari kart seç.");
+  if(!val("transAmount"))return alert("Tutar zorunlu.");
+  const payload={company_id:companyId,cari_id:val("transCari"),transaction_date:val("transDate")||isoToday(),document_no:val("transDocNo"),transaction_type:val("transType"),amount:Number(val("transAmount")||0),payment_method_id:isUuid(val("transPayment"))?val("transPayment"):null,note:val("transNote")};
+  let res;
+  if(val("transId"))res=await client.from("cari_transactions").update(payload).eq("id",val("transId"));
+  else res=await client.from("cari_transactions").insert(payload);
+  if(res.error)return alert(res.error.message);
+  clearTransactionForm();
+  await loadTransactions(companyId);
+  renderCariReport();
+}
+async function deleteTransaction(id){
+  if(!confirm("Tahsil / tediye hareketi silinsin mi? Cari etkisi kalkar."))return;
+  const {error}=await client.from("cari_transactions").delete().eq("id",id);
+  if(error)return alert(error.message);
+  await loadTransactions();
+  renderCariReport();
+}
+
+/* ŞİRKET */
+function clearCompanyForm(){["companyId","coTitle","coTaxOffice","coTaxNo","coOpeningVat","coPrintTitle","coPrintSubtitle","coPrintEmail","coPrintPhone","coLogoFile"].forEach(id=>setVal(id,""))}
+function editCompany(id){
+  const c=companies.find(x=>x.id===id); if(!c)return;
+  setVal("companyId",c.id);setVal("coTitle",c.title);setVal("coTaxOffice",c.tax_office);setVal("coTaxNo",c.tax_no);setVal("coOpeningVat",c.opening_vat||0);setVal("coPrintTitle",c.print_title);setVal("coPrintSubtitle",c.print_subtitle);setVal("coPrintEmail",c.print_email);setVal("coPrintPhone",c.print_phone);setVal("coLogoFile",c.logo_file);
+}
+async function saveCompany(){
+  if(!val("coTitle"))return alert("Unvan zorunlu.");
+  const payload={title:val("coTitle"),tax_office:val("coTaxOffice"),tax_no:val("coTaxNo"),opening_vat:Number(val("coOpeningVat")||0),print_title:val("coPrintTitle"),print_subtitle:val("coPrintSubtitle"),print_email:val("coPrintEmail"),print_phone:val("coPrintPhone"),logo_file:val("coLogoFile"),is_active:true};
+  let res;
+  if(val("companyId"))res=await client.from("companies").update(payload).eq("id",val("companyId"));
+  else res=await client.from("companies").insert(payload);
+  if(res.error)return alert(res.error.message);
+  clearCompanyForm();
+  await loadCompanies();
+  await onCompanyChange();
+}
+
+/* RAPORLAR */
+function movementForCari(cari){
+  const rows=[];
+  const openingDebit=Number(cari.opening_debit||0);
+  const openingCredit=Number(cari.opening_credit||0);
+  if(openingDebit)rows.push({date:"Açılış",type:"Devreden Borç",doc:"",borc:openingDebit,alacak:0});
+  if(openingCredit)rows.push({date:"Açılış",type:"Devreden Alacak",doc:"",borc:0,alacak:openingCredit});
+
+  sales.filter(s=>s.cari_id===cari.id).forEach(s=>{
+    rows.push({date:s.invoice_date,type:"Satış Faturası",doc:s.invoice_no,borc:Number(s.gross_amount||0)-Number(s.withholding_amount||0),alacak:0});
+  });
+
+  purchases.filter(p=>p.cari_id===cari.id).forEach(p=>{
+    rows.push({date:p.invoice_date,type:"Alış Faturası",doc:p.invoice_no,borc:0,alacak:Number(p.gross_amount||0)-Number(p.withholding_amount||0)});
+  });
+
+  transactions.filter(t=>t.cari_id===cari.id).forEach(t=>{
+    if(t.transaction_type==="Tahsil") rows.push({date:t.transaction_date,type:"Tahsil",doc:t.document_no,borc:0,alacak:Number(t.amount||0)});
+    else rows.push({date:t.transaction_date,type:"Tediye",doc:t.document_no,borc:Number(t.amount||0),alacak:0});
+  });
+
+  rows.sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+  return rows;
+}
+
+function renderCariReport(){
+  const summaries=cariler.map(c=>{
+    const rows=movementForCari(c);
+    const borc=rows.reduce((a,b)=>a+Number(b.borc||0),0);
+    const alacak=rows.reduce((a,b)=>a+Number(b.alacak||0),0);
+    const bakiye=borc-alacak;
+    return {c,rows,borc,alacak,bakiye};
+  });
+
+  const summaryHtml=`<h4>Özet</h4><table><thead><tr><th>Cari</th><th>Hesap</th><th>Toplam Borç</th><th>Toplam Alacak</th><th>Bakiye</th><th>Durum</th></tr></thead><tbody>
+  ${summaries.map(s=>`<tr><td>${esc(s.c.title)}</td><td>${esc(s.c.account_code||"")}</td><td class="right">${money(s.borc)}</td><td class="right">${money(s.alacak)}</td><td class="right">${money(Math.abs(s.bakiye))}</td><td>${s.bakiye>0?"Borç / Alacak Var":s.bakiye<0?"Alacaklı":"Kapalı"}</td></tr>`).join("")}
+  </tbody></table>`;
+
+  const detailHtml=summaries.map(s=>`<h4>${esc(s.c.title)} - ${esc(s.c.account_code||"")}</h4>
+  <table><thead><tr><th>Tarih</th><th>Hareket</th><th>Belge No</th><th>Borç</th><th>Alacak</th><th>Bakiye</th></tr></thead><tbody>
+  ${(()=>{let bal=0;return s.rows.map(r=>{bal+=Number(r.borc||0)-Number(r.alacak||0);return `<tr><td>${esc(r.date)}</td><td>${esc(r.type)}</td><td>${esc(r.doc||"")}</td><td class="right">${money(r.borc)}</td><td class="right">${money(r.alacak)}</td><td class="right">${money(bal)}</td></tr>`}).join("")})()}
+  </tbody></table>`).join("");
+
+  byId("cariReportBox").innerHTML=summaryHtml+detailHtml;
+}
+
+function renderReport(){
+  const m=val("reportMonth") || new Date().toISOString().slice(0,7);
+  setVal("reportMonth",m);
+  const c=curCompany();
+  const pbg=lines.filter(x=>inMonth(x.receipt_date,m));
+  const pur=purchases.filter(x=>inMonth(x.invoice_date,m));
+  const sal=sales.filter(x=>inMonth(x.invoice_date,m));
+
+  const salesVat=sal.reduce((a,b)=>a+Number(b.vat_amount||0),0);
+  const purchaseVat=pur.reduce((a,b)=>a+Number(b.vat_amount||0),0);
+  const pbgVat=pbg.reduce((a,b)=>a+Number(b.vat_amount||0),0);
+  const devreden=Number(c.opening_vat||0);
+  const indirilecek=purchaseVat+pbgVat+devreden;
+  const odenecek=salesVat-indirilecek;
+
+  byId("reportBox").innerHTML=`<div class="boxes">
+    <div class="box"><b>Satış KDV</b><span>${money(salesVat)}</span></div>
+    <div class="box"><b>Alış Fatura KDV</b><span>${money(purchaseVat)}</span></div>
+    <div class="box"><b>Peşin Belgeli KDV</b><span>${money(pbgVat)}</span></div>
+    <div class="box"><b>Devreden KDV</b><span>${money(devreden)}</span></div>
+    <div class="box"><b>İndirilecek KDV</b><span>${money(indirilecek)}</span></div>
+    <div class="box"><b>Sonuç</b><span>${odenecek>0?money(odenecek)+" Ödenecek":money(Math.abs(odenecek))+" Devreden"}</span></div>
+  </div>`;
+}
+
+/* PRINT */
+function groupVat(items){
+  const map={};
+  items.forEach(x=>{
+    const rate=String(Number(x.vat_rate||0));
+    if(!map[rate])map[rate]={rate:Number(rate),net:0,vat:0,gross:0,count:0};
+    map[rate].net+=Number(x.net_amount||0);map[rate].vat+=Number(x.vat_amount||0);map[rate].gross+=Number(x.gross_amount||0);map[rate].count++;
+  });
+  return Object.values(map).sort((a,b)=>a.rate-b.rate);
+}
+function printCss(){
+  return `<style>
+  body{font-family:Arial,sans-serif;color:#111;padding:18px;font-size:11px}
+  .top{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;border-bottom:2px solid #333;padding-bottom:10px;margin-bottom:10px}
+  .logo{height:70px;max-width:330px;object-fit:contain}.headText{text-align:right;line-height:1.35}.companyTitle{font-size:17px;font-weight:700;margin-bottom:3px}
+  .docTitle{text-align:center;font-size:18px;font-weight:700;border:1px solid #333;padding:6px;margin:10px 0;background:#f3f3f3}
+  .info{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:10px 0}.box{border:1px solid #777;padding:7px;border-radius:5px}.box b{display:block;margin-bottom:3px;font-size:10px;color:#333}
+  table{width:100%;border-collapse:collapse;margin-top:8px;font-size:10.5px}th,td{border:1px solid #666;padding:5px}th{background:#eee}.right{text-align:right}
+  .bottomSummary{width:390px;margin-left:auto;margin-top:12px;border-collapse:collapse;font-size:11px}.bottomSummary td{border:0;padding:3px 4px}.bottomSummary td:first-child{text-align:left;font-weight:bold;white-space:nowrap}.bottomSummary td:last-child{text-align:right;border-bottom:1px dotted #777;min-width:130px}
+  .yalniz{margin-top:12px;border:1px solid #555;padding:8px;font-weight:bold;font-size:11px}.note{margin-top:14px;font-size:10px;color:#444}
+  .payTitle{margin-top:18px;font-weight:bold;font-size:12px;border-bottom:1px solid #333;padding-bottom:4px}.paymentSummary{width:430px;margin-top:6px;border-collapse:collapse;font-size:11px}.paymentSummary td{border:0;padding:4px 6px}.paymentSummary td:first-child{font-weight:bold}.paymentSummary td:last-child{text-align:right;border-bottom:1px dotted #777;min-width:140px}
+  @page{size:A4 portrait;margin:10mm}</style>`;
+}
+function printHeaderHtml(title){
+  const c=curCompany();
+  const logo=c.logo_file?`<img class="logo" src="${esc(c.logo_file)}" alt="Logo">`:"";
+  const right=`<div class="companyTitle">${esc(c.print_title||c.title||"")}</div>${c.print_subtitle?`<div>${esc(c.print_subtitle)}</div>`:""}${c.print_email?`<div>${esc(c.print_email)}</div>`:""}${c.print_phone?`<div>${esc(c.print_phone)}</div>`:""}${(!c.print_subtitle&&!c.print_email&&!c.print_phone)?`<div>${esc(c.tax_office||"")}${c.tax_no?" / "+esc(c.tax_no):""}</div>`:""}`;
+  return `<div class="top"><div>${logo}</div><div class="headText">${right}</div></div><div class="docTitle">${esc(title)}</div>`;
+}
+function printActiveDoc(){
+  const d=docs.find(x=>x.id===activeDocId);
+  if(!d)return alert("Önce belge seç.");
+  const dl=lines.filter(l=>l.doc_id===d.id);
+  if(!dl.length)return alert("Bu belgede fiş satırı yok.");
+  const vatGroups=groupVat(dl);
+  const totalNet=dl.reduce((a,b)=>a+Number(b.net_amount||0),0);
+  const totalGross=dl.reduce((a,b)=>a+Number(b.gross_amount||0),0);
+  const paymentMap={};
+  dl.forEach(l=>{const p=payments.find(x=>x.id===l.payment_method_id);const name=p?p.name:"Belirtilmemiş";paymentMap[name]=(paymentMap[name]||0)+Number(l.gross_amount||0)});
+  const rows=dl.map((l,i)=>{const p=payments.find(x=>x.id===l.payment_method_id);return `<tr><td>${i+1}</td><td>${esc(todayTR(l.receipt_date))}</td><td>${esc(l.stock_code||"")}</td><td>${esc(l.stock_name||"")}</td><td class="right">%${Number(l.vat_rate||0)}</td><td class="right">${money(l.net_amount)}</td><td class="right">${money(l.vat_amount)}</td><td class="right">${money(l.gross_amount)}</td><td>${esc(p?p.name:"")}</td></tr>`}).join("");
+  const vatSummary=`<tr><td>KDV Hariç Tutar</td><td>${money(totalNet)} TL</td></tr>${vatGroups.map(g=>`<tr><td>KDV %${g.rate}</td><td>${money(g.vat)} TL</td></tr>`).join("")}<tr><td>KDV Dahil Toplam</td><td>${money(totalGross)} TL</td></tr>`;
+  const paymentRows=Object.entries(paymentMap).map(([name,total])=>`<tr><td>${esc(name)}</td><td>${money(total)} TL</td></tr>`).join("");
+  const html=`<!DOCTYPE html><html lang="tr"><head><meta charset="UTF-8"><title>Peşin Belgeli Alışlar - Kasa Fişleri</title>${printCss()}</head><body>${printHeaderHtml("PEŞİN BELGELİ ALIŞLAR (KASA FİŞLERİ)")}
+  <div class="info"><div class="box"><b>Şirket</b>${esc(curCompany().title||"")}</div><div class="box"><b>Belge No</b>${esc(d.doc_no||"")}</div><div class="box"><b>Vergi Dairesi / No</b>${esc(curCompany().tax_office||"")} / ${esc(curCompany().tax_no||"")}</div><div class="box"><b>Belge Tarihi</b>${esc(todayTR(d.doc_date))}</div><div class="box"><b>Satır Sayısı</b>${dl.length}</div></div>
+  <table><thead><tr><th>No</th><th>Tarih</th><th>Stok Kodu</th><th>Açıklama</th><th>KDV Oranı</th><th>KDV Hariç Tutar</th><th>KDV</th><th>KDV Dahil</th><th>Ödeme</th></tr></thead><tbody>${rows}</tbody></table>
+  <table class="bottomSummary">${vatSummary}</table><div class="yalniz">${amountWordsTR(totalGross)}</div>
+  <div class="payTitle">ÖDEME / KAPATMA AÇIKLAMASI</div><table class="paymentSummary">${paymentRows}<tr><td>Ödeme / Kapama Toplamı</td><td>${money(totalGross)} TL</td></tr></table>
+  <div class="note">Bu çıktının arkasına işlenen kasa fişleri zımbalanarak dosyalanır. Luca muhasebe girişinden önce özellikle satırdaki KDV oranları, ödeme/kapatma açıklaması ve alttaki toplamlar kontrol edilmelidir.</div></body></html>`;
+  const w=window.open("","_blank");w.document.write(html);w.document.close();
+}
+function printDocList(){window.print()}
+
+/* INIT */
+document.addEventListener("DOMContentLoaded",async()=>{
+  fillStockSelect();
+  ["docDate","receiptDate","purDate","saleDate","transDate"].forEach(id=>setVal(id,isoToday()));
+  byId("reportMonth").value=new Date().toISOString().slice(0,7);
+  byId("companySelect").addEventListener("change",onCompanyChange);
+  await ensureDefaults();
+  await loadCompanies();
+  await onCompanyChange();
+});
+</script>
+</body>
+</html>
