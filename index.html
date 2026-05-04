@@ -192,5 +192,129 @@ loadAll = async function(){
     status.style.color = "#126b38";
   }
 };
+function safeCompanyId(){
+  const el = document.getElementById("companySelect");
+  return el && el.value ? el.value : null;
+}
+
+function resetCompanyScreenData(){
+  activeDocId = null;
+
+  docs = [];
+  lines = [];
+  purchases = [];
+  sales = [];
+  cariler = [];
+  payments = [];
+
+  if (typeof transactions !== "undefined") {
+    transactions = [];
+  }
+
+  [
+    "docsBody",
+    "linesBody",
+    "paymentsBody",
+    "carilerBody",
+    "purchaseBody",
+    "salesBody",
+    "transactionsBody",
+    "cariReportBox",
+    "reportBox"
+  ].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = "";
+  });
+
+  [
+    "paymentSelect",
+    "purPaymentMethod",
+    "salePaymentMethod",
+    "transPayment",
+    "saleCari",
+    "purCari",
+    "transCari"
+  ].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = "";
+  });
+
+  const activeInfo = document.getElementById("activeDocInfo");
+  if (activeInfo) {
+    activeInfo.textContent = "Şirket değişti. Bu şirket için belge seçilmedi.";
+  }
+
+  const status = document.getElementById("dbStatus");
+  if (status) {
+    status.textContent = "Yükleniyor";
+    status.style.background = "#fff3cd";
+    status.style.color = "#7a5700";
+  }
+}
+
+loadAll = async function(){
+  const selectedCompanyId = safeCompanyId();
+
+  if (!selectedCompanyId) {
+    return;
+  }
+
+  resetCompanyScreenData();
+
+  try {
+    await loadPayments();
+    if (safeCompanyId() !== selectedCompanyId) return;
+
+    await loadCariler();
+    if (safeCompanyId() !== selectedCompanyId) return;
+
+    await loadDocs();
+    if (safeCompanyId() !== selectedCompanyId) return;
+
+    await loadPurchases();
+    if (safeCompanyId() !== selectedCompanyId) return;
+
+    await loadSales();
+    if (safeCompanyId() !== selectedCompanyId) return;
+
+    if (typeof loadTransactions === "function") {
+      await loadTransactions();
+      if (safeCompanyId() !== selectedCompanyId) return;
+    }
+
+    renderReport();
+    renderCariReport();
+
+    const status = document.getElementById("dbStatus");
+    if (status) {
+      status.textContent = "Bağlı";
+      status.style.background = "#dff4e7";
+      status.style.color = "#126b38";
+    }
+  } catch (err) {
+    alert(err.message || err);
+  }
+};
+
+const oldAddLine = addLine;
+addLine = async function(){
+  if (!safeCompanyId()) {
+    alert("Önce şirket seç.");
+    return;
+  }
+
+  if (!activeDocId) {
+    alert("Önce bu şirkete ait belge seç.");
+    return;
+  }
+
+  const paymentEl = document.getElementById("paymentSelect");
+  if (!paymentEl || !paymentEl.value) {
+    alert("Ödeme yöntemi boş. Önce Kart / Nakit ekranından bu şirket için ödeme yöntemi tanımla.");
+    return;
+  }
+
+  return oldAddLine();
+};
 </script>
 </body></html>
