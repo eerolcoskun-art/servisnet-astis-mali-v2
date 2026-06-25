@@ -378,7 +378,8 @@ function calcFromNet(n,r){let vat=Number(n)*Number(r)/100;return{net:Number(n),v
 function inMonth(d,m){return d&&String(d).slice(0,7)===m}
 function offlineCompanies(){return[
  {id:"11111111-1111-4111-8111-111111111111",title:"Marmara Serviscileri ve Taşımacılık A.Ş.",tax_office:"İlyasbey Vergi Dairesi",tax_no:"6121540261",opening_vat:0,is_active:true,print_title:"Marmara Serviscilleri Ve Taşımacılık A.Ş. ( ServisNET TÜRKİYE )",print_subtitle:"ASTİS Akıllı Servis Taşımacılığı İşletim Sistemi",print_email:"info@servisnet.net",print_phone:"0 (850) 303 70 63",logo_file:"logo.png"},
- {id:"22222222-2222-4222-8222-222222222222",title:"Huffazoğlu Yapı Malzemeleri İnş. Ltd. Şti.",tax_office:"",tax_no:"",opening_vat:0,is_active:true,print_title:"Huffazoğlu Yapı Malzemeleri İnş. Ltd. Şti. / Huffazoğlu Turizm",print_subtitle:"Köşklüçeşme Mah. 548 Sokak No: 28 Gebze / Kocaeli",print_email:"eerolcoskun@gmail.com",print_phone:"0537 603 30 33",logo_file:"huffazoglu-logo.jpg"}
+ {id:"22222222-2222-4222-8222-222222222222",title:"Huffazoğlu Yapı Malzemeleri İnş. Ltd. Şti.",tax_office:"",tax_no:"",opening_vat:0,is_active:true,print_title:"Huffazoğlu Yapı Malzemeleri İnş. Ltd. Şti. / Huffazoğlu Turizm",print_subtitle:"Köşklüçeşme Mah. 548 Sokak No: 28 Gebze / Kocaeli",print_email:"eerolcoskun@gmail.com",print_phone:"0537 603 30 33",logo_file:"huffazoglu-logo.jpg"},
+ {id:"44444444-4444-4444-8444-444444444444",title:"AHMET ÇALIŞKAN ŞAHIS ŞİRKETİ",tax_office:"",tax_no:"",opening_vat:0,is_active:true,print_title:"AHMET ÇALIŞKAN ŞAHIS ŞİRKETİ",print_subtitle:"",print_email:"",print_phone:"",logo_file:"logo.png"}
 ] }
 function offlinePayments(){return[{id:"33333333-3333-4333-8333-333333333333",company_id:co(),name:"Nakit",bank:"Kasa",type:"Nakit"}]}
 function offlineKey(name){return "servisnet_mali_v2_"+name+"_"+(co()||"default")}
@@ -420,14 +421,17 @@ function clearScoped(){
 
 async function ensureDefaults(){
  let res;
- try{res=await client.from("companies").select("id").limit(1);}catch(e){useOfflineMode();return}
+ try{res=await client.from("companies").select("id,title").limit(1000);}catch(e){useOfflineMode();return}
  const {data,error}=res;
  if(error){useOfflineMode();return}
  if(!data||!data.length){
   await client.from("companies").insert([
    {title:"Marmara Serviscileri ve Taşımacılık A.Ş.",tax_office:"İlyasbey Vergi Dairesi",tax_no:"6121540261",opening_vat:0,is_active:true,print_title:"Marmara Serviscilleri Ve Taşımacılık A.Ş. ( ServisNEt TÜRKİYE )",print_subtitle:"ASTİS Akıllı Servis Taşımacılığı İşletim Sistemi",print_email:"info@servisnet.net",print_phone:"0 (850) 303 70 63",logo_file:"logo.png"},
-   {title:"Huffazoğlu Yapı Malzemeleri İnş. Ltd. Şti.",tax_office:"",tax_no:"",opening_vat:0,is_active:true,print_title:"Huffazoğlu Yapı Malzemeleri İnş. Ltd. Şti. / Huffazoğlu Turizm",print_subtitle:"Köşklüçeşme Mah. 548 Sokak No: 28 Gebze / Kocaeli",print_email:"eerolcoskun@gmail.com",print_phone:"0537 603 30 33",logo_file:"huffazoglu-logo.jpg"}
+   {title:"Huffazoğlu Yapı Malzemeleri İnş. Ltd. Şti.",tax_office:"",tax_no:"",opening_vat:0,is_active:true,print_title:"Huffazoğlu Yapı Malzemeleri İnş. Ltd. Şti. / Huffazoğlu Turizm",print_subtitle:"Köşklüçeşme Mah. 548 Sokak No: 28 Gebze / Kocaeli",print_email:"eerolcoskun@gmail.com",print_phone:"0537 603 30 33",logo_file:"huffazoglu-logo.jpg"},
+   {title:"AHMET ÇALIŞKAN ŞAHIS ŞİRKETİ",tax_office:"",tax_no:"",opening_vat:0,is_active:true,print_title:"AHMET ÇALIŞKAN ŞAHIS ŞİRKETİ",print_subtitle:"",print_email:"",print_phone:"",logo_file:"logo.png"}
   ]);
+ }else if(!data.some(c=>String(c.title||"").toLocaleUpperCase("tr-TR").includes("AHMET ÇALIŞKAN"))){
+  await client.from("companies").insert({title:"AHMET ÇALIŞKAN ŞAHIS ŞİRKETİ",tax_office:"",tax_no:"",opening_vat:0,is_active:true,print_title:"AHMET ÇALIŞKAN ŞAHIS ŞİRKETİ",print_subtitle:"",print_email:"",print_phone:"",logo_file:"logo.png"});
  }
 }
 
