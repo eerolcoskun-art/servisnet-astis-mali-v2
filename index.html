@@ -316,7 +316,7 @@ const supabaseUrl="https://estdjfvlpebkmelzewjo.supabase.co";
 const supabaseKey="sb_publishable_YnjXKncf6BGO6gMa4bzAhA_66duBIov";
 const client=supabase.createClient(supabaseUrl,supabaseKey);
 
-let companies=[],payments=[],docs=[],lines=[],purchases=[],sales=[],cariler=[],transactions=[],activeDocId=null;
+let companies=[],payments=[],docs=[],lines=[],purchases=[],sales=[],cariler=[],transactions=[],activeDocId=null,dbOnline=true;
 
 const stocks=[
  ["770.02.001","Yakıt"],
@@ -376,6 +376,20 @@ function curCompany(){return companies.find(x=>x.id===co())||{}}
 function calcFromGross(g,r){let net=Number(r)==0?Number(g):Number(g)/(1+Number(r)/100);return{net,vat:Number(g)-net,gross:Number(g)}}
 function calcFromNet(n,r){let vat=Number(n)*Number(r)/100;return{net:Number(n),vat,gross:Number(n)+vat}}
 function inMonth(d,m){return d&&String(d).slice(0,7)===m}
+function offlineCompanies(){return[
+ {id:"11111111-1111-4111-8111-111111111111",title:"Marmara Serviscileri ve Taşımacılık A.Ş.",tax_office:"İlyasbey Vergi Dairesi",tax_no:"6121540261",opening_vat:0,is_active:true,print_title:"Marmara Serviscilleri Ve Taşımacılık A.Ş. ( ServisNET TÜRKİYE )",print_subtitle:"ASTİS Akıllı Servis Taşımacılığı İşletim Sistemi",print_email:"info@servisnet.net",print_phone:"0 (850) 303 70 63",logo_file:"logo.png"},
+ {id:"22222222-2222-4222-8222-222222222222",title:"Huffazoğlu Yapı Malzemeleri İnş. Ltd. Şti.",tax_office:"",tax_no:"",opening_vat:0,is_active:true,print_title:"Huffazoğlu Yapı Malzemeleri İnş. Ltd. Şti. / Huffazoğlu Turizm",print_subtitle:"Köşklüçeşme Mah. 548 Sokak No: 28 Gebze / Kocaeli",print_email:"eerolcoskun@gmail.com",print_phone:"0537 603 30 33",logo_file:"huffazoglu-logo.jpg"}
+] }
+function offlinePayments(){return[{id:"33333333-3333-4333-8333-333333333333",company_id:co(),name:"Nakit",bank:"Kasa",type:"Nakit"}]}
+function useOfflineMode(){
+ dbOnline=false;
+ companies=offlineCompanies();
+ payments=offlinePayments();
+ docs=[];lines=[];purchases=[];sales=[];cariler=[];transactions=[];
+ const sel=byId("companySelect");
+ if(sel)sel.innerHTML=companies.map(c=>`<option value="${c.id}">${esc(c.title)}</option>`).join("");
+ setStatus("Yerel mod","warn");
+}
 
 function openScreen(id,el){
  document.querySelectorAll(".screen").forEach(x=>x.classList.remove("active","printMe"));
@@ -400,7 +414,10 @@ function clearScoped(){
 }
 
 async function ensureDefaults(){
- const {data}=await client.from("companies").select("id").limit(1);
+ let res;
+ try{res=await client.from("companies").select("id").limit(1);}catch(e){useOfflineMode();return}
+ const {data,error}=res;
+ if(error){useOfflineMode();return}
  if(!data||!data.length){
   await client.from("companies").insert([
    {title:"Marmara Serviscileri ve Taşımacılık A.Ş.",tax_office:"İlyasbey Vergi Dairesi",tax_no:"6121540261",opening_vat:0,is_active:true,print_title:"Marmara Serviscilleri Ve Taşımacılık A.Ş. ( ServisNEt TÜRKİYE )",print_subtitle:"ASTİS Akıllı Servis Taşımacılığı İşletim Sistemi",print_email:"info@servisnet.net",print_phone:"0 (850) 303 70 63",logo_file:"logo.png"},
@@ -411,9 +428,13 @@ async function ensureDefaults(){
 
 async function loadCompanies(){
  const keep=co();
- const {data,error}=await client.from("companies").select("*").order("created_at",{ascending:true});
- if(error)return alert(error.message);
- companies=data||[];
+ if(!dbOnline){useOfflineMode();}
+ else{
+  let res;
+  try{res=await client.from("companies").select("*").order("created_at",{ascending:true});}catch(e){useOfflineMode();}
+  if(res&&res.error)useOfflineMode();
+  if(res&&!res.error)companies=res.data||[];
+ }
  byId("companySelect").innerHTML=companies.map(c=>`<option value="${c.id}">${esc(c.title)}</option>`).join("");
  if(keep && companies.some(c=>c.id===keep)) byId("companySelect").value=keep;
  else if(companies[0]) byId("companySelect").value=companies[0].id;
@@ -428,27 +449,31 @@ function updateCompanyLabel(){
 async function loadAll(){
  clearScoped();
  setStatus("Yükleniyor","warn");
- await loadCompanies();
- const cid=co();
- if(!isUuid(cid))return;
- await loadPayments();
- await loadCariler();
- await loadDocs();
- await loadPurchases();
- await loadSales();
- await loadTransactions();
+ try{
+  await loadCompanies();
+  const cid=co();
+  if(!isUuid(cid)){renderAll();setStatus(dbOnline?"Bağlı":"Yerel mod",dbOnline?"ok":"warn");return;}
+  await loadPayments();
+  await loadCariler();
+  await loadDocs();
+  await loadPurchases();
+  await loadSales();
+  await loadTransactions();
+ }catch(e){
+  useOfflineMode();
+ }
  renderAll();
- setStatus("Bağlı");
+ setStatus(dbOnline?"Bağlı":"Yerel mod",dbOnline?"ok":"warn");
 }
 
 function renderAll(){renderAccounts();renderStocks();renderDashboard();renderPayments();renderCariler();fillCariSelects();renderDocs();renderActiveDoc();renderTransactions();renderPurchases();renderSales();renderReport();}
 
-async function loadPayments(){const {data,error}=await client.from("payment_methods").select("*").eq("company_id",co()).order("created_at",{ascending:true}); if(error)return alert(error.message); payments=data||[]; if(!payments.length){await client.from("payment_methods").insert({company_id:co(),name:"Nakit",bank:"Kasa",type:"Nakit"});return loadPayments();}}
-async function loadCariler(){const {data,error}=await client.from("cariler").select("*").eq("company_id",co()).order("account_code",{ascending:true}); if(error)return alert(error.message); cariler=data||[];}
-async function loadDocs(){const {data,error}=await client.from("cash_purchase_docs").select("*").eq("company_id",co()).order("doc_date",{ascending:false}); if(error)return alert(error.message); docs=data||[]; const r=await client.from("cash_purchase_lines").select("*").eq("company_id",co()).order("line_no",{ascending:true}); if(r.error)return alert(r.error.message); lines=r.data||[]; if(!activeDocId&&docs[0])activeDocId=docs[0].id;}
-async function loadPurchases(){const {data,error}=await client.from("purchase_invoices").select("*").eq("company_id",co()).order("invoice_date",{ascending:false}); if(error)return alert(error.message); purchases=data||[];}
-async function loadSales(){const {data,error}=await client.from("sales_invoices").select("*").eq("company_id",co()).order("invoice_date",{ascending:false}); if(error)return alert(error.message); sales=data||[];}
-async function loadTransactions(){const {data,error}=await client.from("cari_transactions").select("*").eq("company_id",co()).order("transaction_date",{ascending:false}); if(error)return alert(error.message); transactions=data||[];}
+async function loadPayments(){if(!dbOnline){payments=offlinePayments();return} const {data,error}=await client.from("payment_methods").select("*").eq("company_id",co()).order("created_at",{ascending:true}); if(error){useOfflineMode();return} payments=data||[]; if(!payments.length){await client.from("payment_methods").insert({company_id:co(),name:"Nakit",bank:"Kasa",type:"Nakit"});return loadPayments();}}
+async function loadCariler(){if(!dbOnline){cariler=[];return} const {data,error}=await client.from("cariler").select("*").eq("company_id",co()).order("account_code",{ascending:true}); if(error){useOfflineMode();return} cariler=data||[];}
+async function loadDocs(){if(!dbOnline){docs=[];lines=[];return} const {data,error}=await client.from("cash_purchase_docs").select("*").eq("company_id",co()).order("doc_date",{ascending:false}); if(error){useOfflineMode();return} docs=data||[]; const r=await client.from("cash_purchase_lines").select("*").eq("company_id",co()).order("line_no",{ascending:true}); if(r.error){useOfflineMode();return} lines=r.data||[]; if(!activeDocId&&docs[0])activeDocId=docs[0].id;}
+async function loadPurchases(){if(!dbOnline){purchases=[];return} const {data,error}=await client.from("purchase_invoices").select("*").eq("company_id",co()).order("invoice_date",{ascending:false}); if(error){useOfflineMode();return} purchases=data||[];}
+async function loadSales(){if(!dbOnline){sales=[];return} const {data,error}=await client.from("sales_invoices").select("*").eq("company_id",co()).order("invoice_date",{ascending:false}); if(error){useOfflineMode();return} sales=data||[];}
+async function loadTransactions(){if(!dbOnline){transactions=[];return} const {data,error}=await client.from("cari_transactions").select("*").eq("company_id",co()).order("transaction_date",{ascending:false}); if(error){useOfflineMode();return} transactions=data||[];}
 
 function renderAccounts(){byId("accountsBody").innerHTML=accountPlan.concat(stocks.map(s=>[s[0],s[1],"Alt","Peşin Belgeli Gider / Alış"])).map(a=>`<tr><td>${a[0]}</td><td>${a[1]}</td><td>${a[2]}</td><td>${a[3]}</td></tr>`).join("")}
 function stockCardCode(baseCode,vatRate){return vatStockRoots.includes(baseCode)&&["1","10","20"].includes(String(vatRate))?baseCode+"."+String(vatRate).padStart(2,"0"):baseCode}
